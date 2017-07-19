@@ -1,5 +1,5 @@
 #include <iostream>
-#include <hash_map>
+#include <map>
 #include "opencv2/imgproc.hpp"
 #include "opencv2/imgcodecs.hpp"
 #include "opencv2/highgui.hpp"
@@ -28,8 +28,10 @@ bool verify(RotatedRect rect) {
 int main()
 {
 	string in = "images/2715DTZ.jpg";
+
 	Mat image = imread(in, IMREAD_GRAYSCALE);
 	Mat image2 = imread(in);
+	Mat image3 = imread(in, IMREAD_GRAYSCALE);
 
 	if (image.empty()){
 		return -1;
@@ -52,9 +54,7 @@ int main()
 
 	vector<vector<Point>> contours;
 	findContours(image, contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE);
-
-	hash_map<int, RotatedRect> map;
-	// vector<RotatedRect> rects;
+	map<int, RotatedRect> _map;
 
 	for (int i = 0; i < contours.size(); i++) {
 		drawContours(image, contours, i, Scalar(255), 1); // 绘制轮廓
@@ -69,17 +69,10 @@ int main()
 
 		// 验证
 		if (verify(rect)) {
-			cout << "通过验证" << endl;
-			//rects.push_back(rect);
-			map[i] = rect;
+			_map[i] = rect;
 		}
 	}
-	//imshow("【轮廓提取】", image);
-
-
-	cout << "通过验证的矩形个数" << map.size() << endl;
-
-
+	imshow("【轮廓提取】", image);
 
 
 
@@ -87,36 +80,39 @@ int main()
 	int min_diff = 100000;
 	int index = 0;
 	const float square = 27.75;
-	int size = map.size();
-	for (int i = 0; i < size; i++) {
-		RotatedRect rect = map[i];
+
+	map<int, RotatedRect>::iterator iter;
+	iter = _map.begin();
+	while (iter != _map.end()) {
+
+		RotatedRect rect = iter->second;
 		Point2f vertices[4];
 		rect.points(vertices);
 		for (int j = 0; j < 4; j++) {
-			line(image, vertices[j], vertices[(j + 1) % 4], Scalar(255), 10);
+		    line(image, vertices[j], vertices[(j + 1) % 4], Scalar(255), 10);
 		}
 
 		// 选择最接近的矩形
-		int perimeter = arcLength(contours[i], true);
-		int area = contourArea(contours[i]);
+		int perimeter = arcLength(contours[iter->first], true);
+		int area = contourArea(contours[iter->first]);
 		if (area != 0) {
-			int squareness = perimeter * perimeter / area;
-			cout << squareness << endl;
-			float diff = abs(squareness - square);
-			if (diff < min_diff) {
-
-				min_diff = diff;
-				index = i;
-
-			}
+		int squareness = perimeter * perimeter / area;
+		
+		float diff = abs(squareness - square);
+		    if (diff < min_diff) {
+		        min_diff = diff;
+		        index = iter->first;
+		    }
 		}
-
+		iter++;
 	}
+
 	imshow("【通过验证】", image);
 
-	cout << index << endl;
+	
+
 	// 绘制最接近的矩形
-	RotatedRect rect = map[index];
+	RotatedRect rect = _map[index];
 	Point2f vertices[4];
 	rect.points(vertices);
 	for (int i = 0; i < 4; i++) {
@@ -126,26 +122,10 @@ int main()
 	imshow("【最接近的矩形】", image2);
 
 
-	//   Canny(image, image, 50, 200, 3); // Apply canny edge
-	//   // Create and LSD detector with standard or no refinement.
-	//   Ptr<LineSegmentDetector> ls = createLineSegmentDetector(LSD_REFINE_STD);
-
-	//   double start = double(getTickCount());
-	//   vector<Vec4f> lines_std;
-	//   // Detect the lines
-	//   ls->detect(image, lines_std);
-	//   double duration_ms = (double(getTickCount()) - start) * 1000 / getTickFrequency();
-	//   std::cout << "It took " << duration_ms << " ms." << std::endl;
-	//   // Show found lines
-	//   Mat drawnLines(image);
-	//Mat dst;
-	//dst.create(image.size(), image.type());
-
-	//   ls->drawSegments(drawnLines, lines_std);
-	//ls->drawSegments(dst, lines_std);
-
-	//   imshow("Standard refinement", drawnLines);
-	//imshow("LSD直线检测", dst);
+	// 图像切割
+	Mat image_crop;
+	getRectSubPix(image3, rect.size, rect.center, image_crop);
+	imshow("【切割后的车牌】", image_crop);
 
 	waitKey();
 	return 0;
